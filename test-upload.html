@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transfer Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #101820;
+    --panel: #16202B;
+    --panel-alt: #1C2833;
+    --border: #263340;
+    --text: #E7ECF1;
+    --text-dim: #8CA0B3;
+    --accent: #3FB6AC;
+    --accent-dim: #2A7D76;
+    --warn: #E0A458;
+    --danger: #D96B5D;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    font-family: 'Inter', sans-serif;
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    padding: 48px 20px;
+  }
+
+  .console {
+    width: 100%;
+    max-width: 640px;
+  }
+
+  .console-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 28px;
+  }
+
+  .brand-title {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    text-align: center;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .panel + .panel { margin-top: 16px; }
+
+  .panel-inner { padding: 24px; }
+
+  #dropzone {
+    border: 1.5px dashed var(--border);
+    border-radius: 8px;
+    padding: 32px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  #dropzone.drag {
+    border-color: var(--accent);
+    background: rgba(63,182,172,0.06);
+  }
+  #dropzone:hover { border-color: var(--accent-dim); }
+
+  #dropzone svg {
+    width: 28px;
+    height: 28px;
+    margin-bottom: 12px;
+    stroke: var(--text-dim);
+  }
+
+  #dropzone .dz-main {
+    font-size: 14px;
+    font-weight: 500;
+    margin: 0 0 4px;
+    color: var(--text);
+  }
+  #dropzone .dz-sub {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin: 0;
+  }
+  #dropzone .dz-sub b { color: var(--text-dim); font-weight: 600; }
+
+  #fileInput { display: none; }
+
+  .chosen {
+    display: none;
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12.5px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .chosen.show { display: flex; }
+  .chosen .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chosen .size { color: var(--text-dim); flex-shrink: 0; }
+
+  button.send {
+    flex: 1;
+    padding: 12px;
+    background: var(--accent);
+    color: #08201D;
+    border: none;
+    border-radius: 6px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  button.send:hover { background: #52c4ba; }
+  button.send:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
+
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .clear-btn {
+    padding: 12px 18px;
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .clear-btn:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
+  .clear-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  #status {
+    margin-top: 14px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    display: none;
+    padding: 12px 14px;
+    border-radius: 6px;
+    word-break: break-word;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  #status.show { display: block; }
+  #status.ok { background: rgba(63,182,172,0.1); color: var(--accent); border: 1px solid rgba(63,182,172,0.3); }
+  #status.err { background: rgba(217,107,93,0.1); color: var(--danger); border: 1px solid rgba(217,107,93,0.3); }
+  #status.pending { background: var(--panel-alt); color: var(--text-dim); border: 1px solid var(--border); }
+  #status a { color: inherit; font-weight: 600; }
+
+  .panel-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-title-row h2 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-dim);
+  }
+  .panel-title-row .count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    padding: 10px 24px;
+    font-weight: 500;
+    border-bottom: 1px solid var(--border);
+  }
+  thead th.num { text-align: right; }
+  tbody td {
+    padding: 12px 24px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--panel-alt); }
+
+  .file-name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    overflow: hidden;
+  }
+  .file-name svg { width: 15px; height: 15px; stroke: var(--text-dim); flex-shrink: 0; }
+  .file-name span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+
+  td.size, td.action {
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  td.action a {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  td.action a:hover { text-decoration: underline; }
+
+  .empty-row td {
+    text-align: center;
+    color: var(--text-dim);
+    font-style: italic;
+    padding: 28px 24px;
+  }
+
+  /* Share code box (shown after a successful upload) */
+  .code-box {
+    display: none;
+    margin-top: 14px;
+    padding: 18px;
+    background: var(--panel-alt);
+    border: 1px solid var(--accent-dim);
+    border-radius: 8px;
+    text-align: center;
+  }
+  .code-box.show { display: block; }
+  .code-box .code-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+  .code-box .code-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .code-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+  .mini-btn {
+    padding: 8px 14px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .mini-btn:hover { border-color: var(--accent); background: rgba(63,182,172,0.08); }
+
+  /* Receive panel */
+  .receive-row {
+    display: flex;
+    gap: 10px;
+  }
+  #codeInput {
+    flex: 1;
+    padding: 12px 14px;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    letter-spacing: 0.1em;
+    text-align: center;
+  }
+  #codeInput:focus { outline: none; border-color: var(--accent); }
+  #codeInput::placeholder { letter-spacing: normal; color: var(--text-dim); }
+
+  button.send.secondary {
+    width: auto;
+    margin-top: 0;
+    padding: 12px 20px;
+    white-space: nowrap;
+  }
+
+  #receiveStatus {
+    margin-top: 14px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    display: none;
+    padding: 12px 14px;
+    border-radius: 6px;
+    word-break: break-word;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  #receiveStatus.show { display: block; }
+  #receiveStatus.ok { background: rgba(63,182,172,0.1); color: var(--accent); border: 1px solid rgba(63,182,172,0.3); }
+  #receiveStatus.err { background: rgba(217,107,93,0.1); color: var(--danger); border: 1px solid rgba(217,107,93,0.3); }
+  #receiveStatus.pending { background: var(--panel-alt); color: var(--text-dim); border: 1px solid var(--border); }
+  #receiveStatus a { color: inherit; font-weight: 600; }
+
+  /* Row action buttons in the History table */
+  td.action { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+  .icon-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .icon-btn:hover { color: var(--text); }
+  .icon-btn.danger:hover { color: var(--danger); }
+
+  /* Share popup menu - WhatsApp / Facebook / Telegram options */
+  .share-menu {
+    position: fixed;
+    z-index: 999;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    min-width: 170px;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+  }
+  .share-menu a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+  }
+  .share-menu a:hover { background: var(--panel); }
+  .share-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .share-icon.wa { background: #25D366; }
+  .share-icon.fb { background: #1877F2; }
+  .share-icon.tg { background: #229ED9; }
+
+  @media (max-width: 480px) {
+    .panel-inner { padding: 18px; }
+    thead th, tbody td, .panel-title-row { padding-left: 16px; padding-right: 16px; }
+    thead th:nth-child(2), td.size { display: none; }
+    .receive-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="console">
+  <div class="console-header">
+    <h1 class="brand-title">FILE-X</h1>
+  </div>
+
+  <div class="panel">
+    <div class="panel-inner code-box show" id="codeBox">
+      <div class="code-label">Session code — share this with the receiving device</div>
+      <div class="code-value" id="codeValue">----</div>
+      <div class="code-actions">
+        <button class="mini-btn" id="copyCodeBtn">Copy Code</button>
+        <button class="mini-btn" id="shareCodeBtn">Share</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-inner">
+      <div id="dropzone">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 16V4M12 4l-4 4M12 4l4 4"/>
+          <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+        </svg>
+        <p class="dz-main">Drop a file here or click to browse</p>
+        <p class="dz-sub">Any file type · up to <b>100 MB</b></p>
+        <input type="file" id="fileInput">
+      </div>
+
+      <div class="chosen" id="chosen">
+        <span class="name" id="chosenName"></span>
+        <span class="size" id="chosenSize"></span>
+      </div>
+
+      <div class="btn-row">
+        <button class="send" id="sendBtn" disabled>Upload File</button>
+        <button class="clear-btn" id="clearBtn" disabled>Clear</button>
+      </div>
+
+      <div id="status"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-inner">
+      <div class="receive-row">
+        <input type="text" id="codeInput" maxlength="4" inputmode="numeric" placeholder="Enter 4-digit code">
+        <button class="send secondary" id="receiveBtn">Get File</button>
+      </div>
+      <div id="receiveStatus"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title-row">
+      <h2>History</h2>
+      <span class="count" id="fileCount">0 files</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>File</th>
+          <th class="num">Size</th>
+          <th class="num">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="fileList">
+        <tr class="empty-row"><td colspan="3">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:3000';
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const chosen = document.getElementById('chosen');
+const chosenName = document.getElementById('chosenName');
+const chosenSize = document.getElementById('chosenSize');
+const sendBtn = document.getElementById('sendBtn');
+const clearBtn = document.getElementById('clearBtn');
+const status = document.getElementById('status');
+const fileList = document.getElementById('fileList');
+const fileCount = document.getElementById('fileCount');
+const codeBox = document.getElementById('codeBox');
+const codeValue = document.getElementById('codeValue');
+const copyCodeBtn = document.getElementById('copyCodeBtn');
+const shareCodeBtn = document.getElementById('shareCodeBtn');
+const codeInput = document.getElementById('codeInput');
+const receiveBtn = document.getElementById('receiveBtn');
+const receiveStatus = document.getElementById('receiveStatus');
+
+let selectedFile = null;
+let lastShareCode = null;
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function fileIconSvg() {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>';
+}
+
+function setStatus(kind, html) {
+  status.className = 'show ' + kind;
+  status.innerHTML = html;
+}
+
+function selectFile(file) {
+  selectedFile = file;
+  chosenName.textContent = file.name;
+  chosenSize.textContent = formatSize(file.size);
+  chosen.classList.add('show');
+  sendBtn.disabled = false;
+  clearBtn.disabled = false;
+  status.classList.remove('show');
+}
+
+function resetSelection() {
+  selectedFile = null;
+  fileInput.value = '';
+  chosen.classList.remove('show');
+  sendBtn.disabled = true;
+  clearBtn.disabled = true;
+  status.classList.remove('show');
+}
+
+clearBtn.addEventListener('click', resetSelection);
+
+dropzone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => {
+  if (e.target.files.length) selectFile(e.target.files[0]);
+});
+
+['dragenter', 'dragover'].forEach(evt => {
+  dropzone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    dropzone.classList.add('drag');
+  });
+});
+['dragleave', 'drop'].forEach(evt => {
+  dropzone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+  });
+});
+dropzone.addEventListener('drop', (e) => {
+  if (e.dataTransfer.files.length) selectFile(e.dataTransfer.files[0]);
+});
+
+sendBtn.addEventListener('click', async () => {
+  if (!selectedFile) return;
+
+  sendBtn.disabled = true;
+  sendBtn.textContent = 'Uploading…';
+  setStatus('pending', 'Transferring file…');
+
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+
+  try {
+    const res = await fetch(API + '/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (data.success) {
+      setStatus('ok', '✓ Uploaded — <a href="' + data.file.downloadUrl + '" target="_blank">' + data.file.savedAs + '</a> (' + formatSize(data.file.size) + ')');
+      chosen.classList.remove('show');
+      selectedFile = null;
+      fileInput.value = '';
+      clearBtn.disabled = true;
+
+      lastShareCode = data.file.shareCode;
+      codeValue.textContent = lastShareCode;
+
+      loadFileList();
+    } else {
+      setStatus('err', '✕ ' + (data.message || 'Upload failed'));
+    }
+  } catch (err) {
+    setStatus('err', '✕ Could not reach the server. Check that it is running on localhost:3000.');
+  } finally {
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Upload File';
+  }
+});
+
+copyCodeBtn.addEventListener('click', async () => {
+  if (!lastShareCode) return;
+  try {
+    await navigator.clipboard.writeText(lastShareCode);
+    copyCodeBtn.textContent = 'Copied!';
+    setTimeout(() => { copyCodeBtn.textContent = 'Copy Code'; }, 1500);
+  } catch (e) {
+    prompt('Copy this code:', lastShareCode);
+  }
+});
+
+shareCodeBtn.addEventListener('click', (e) => {
+  if (!lastShareCode) return;
+  const message = 'Transfer Console eken file ekak yawanna dala tiyena code eka: ' + lastShareCode;
+  openShareMenu(e.currentTarget, API, message);
+});
+
+// WhatsApp / Facebook / Telegram share links hadanawa
+function buildShareLinks(url, text) {
+  const encodedUrl = encodeURIComponent(url);
+  const encodedText = encodeURIComponent(text);
+  return {
+    whatsapp: 'https://wa.me/?text=' + encodedText + '%20' + encodedUrl,
+    facebook: 'https://www.facebook.com/sharer/sharer.php?u=' + encodedUrl,
+    telegram: 'https://t.me/share/url?url=' + encodedUrl + '&text=' + encodedText
+  };
+}
+
+// Share button click una nam, WhatsApp/Facebook/Telegram 3ma pennana popup ekak open karanawa
+function openShareMenu(anchorEl, url, text) {
+  closeShareMenu();
+  const links = buildShareLinks(url, text);
+
+  const menu = document.createElement('div');
+  menu.className = 'share-menu';
+  menu.id = 'activeShareMenu';
+  menu.innerHTML =
+    '<a href="' + links.whatsapp + '" target="_blank" rel="noopener"><span class="share-icon wa">W</span>WhatsApp</a>' +
+    '<a href="' + links.facebook + '" target="_blank" rel="noopener"><span class="share-icon fb">f</span>Facebook</a>' +
+    '<a href="' + links.telegram + '" target="_blank" rel="noopener"><span class="share-icon tg">T</span>Telegram</a>';
+  document.body.appendChild(menu);
+
+  const rect = anchorEl.getBoundingClientRect();
+  const menuWidth = menu.offsetWidth;
+  menu.style.top = (rect.bottom + 6) + 'px';
+  menu.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8)) + 'px';
+
+  setTimeout(() => document.addEventListener('click', closeShareMenuOnOutsideClick), 0);
+}
+
+function closeShareMenu() {
+  const existing = document.getElementById('activeShareMenu');
+  if (existing) existing.remove();
+  document.removeEventListener('click', closeShareMenuOnOutsideClick);
+}
+
+function closeShareMenuOnOutsideClick(e) {
+  const menu = document.getElementById('activeShareMenu');
+  if (menu && !menu.contains(e.target)) closeShareMenu();
+}
+
+function setReceiveStatus(kind, html) {
+  receiveStatus.className = 'show ' + kind;
+  receiveStatus.innerHTML = html;
+}
+
+receiveBtn.addEventListener('click', async () => {
+  const code = codeInput.value.trim();
+  if (!/^\d{4}$/.test(code)) {
+    setReceiveStatus('err', '✕ Digits 4ක code එකක් දාන්න.');
+    return;
+  }
+
+  receiveBtn.disabled = true;
+  setReceiveStatus('pending', 'Checking code…');
+
+  try {
+    const res = await fetch(API + '/receive/' + code);
+    const data = await res.json();
+
+    if (data.success) {
+      if (data.files.length === 0) {
+        setReceiveStatus('ok', 'Code eka හරි — නමුත් තව file එකක්වත් upload කරලා නෑ.');
+      } else {
+        const items = data.files.map(f =>
+          '<a href="' + f.downloadUrl + '" target="_blank">' + f.name + '</a> (' + formatSize(f.size) + ')'
+        ).join('<br>');
+        setReceiveStatus('ok', '✓ Code eka හරි — ' + data.count + ' file(s):<br>' + items);
+      }
+    } else {
+      setReceiveStatus('err', '✕ ' + data.message);
+    }
+  } catch (err) {
+    setReceiveStatus('err', '✕ Server එකට reach වෙන්න බැරි වුනා.');
+  } finally {
+    receiveBtn.disabled = false;
+  }
+});
+
+async function deleteFile(name) {
+  if (!confirm('"' + name + '" delete කරන්නද? මේක undo කරන්න බැහැ.')) return;
+  try {
+    const res = await fetch(API + '/delete/' + encodeURIComponent(name), { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      loadFileList();
+    } else {
+      alert(data.message);
+    }
+  } catch (err) {
+    alert('File එක delete කරන්න බැරි වුනා.');
+  }
+}
+
+async function loadFileList() {
+  try {
+    const res = await fetch(API + '/files');
+    const data = await res.json();
+
+    fileCount.textContent = data.count + (data.count === 1 ? ' file' : ' files');
+
+    if (!data.files || data.files.length === 0) {
+      fileList.innerHTML = '<tr class="empty-row"><td colspan="3">No files uploaded yet</td></tr>';
+      return;
+    }
+
+    fileList.innerHTML = data.files.map(f =>
+      '<tr>' +
+        '<td><div class="file-name">' + fileIconSvg() + '<span>' + f.name + '</span></div></td>' +
+        '<td class="size">' + formatSize(f.size) + '</td>' +
+        '<td class="action">' +
+          '<button class="icon-btn" data-action="share" data-url="' + f.downloadUrl + '" data-name="' + f.name.replace(/"/g, '&quot;') + '">Share</button>' +
+          '<a href="' + f.downloadUrl + '" target="_blank">Download</a>' +
+          '<button class="icon-btn danger" data-action="delete" data-name="' + f.name.replace(/"/g, '&quot;') + '">Delete</button>' +
+        '</td>' +
+      '</tr>'
+    ).join('');
+  } catch (err) {
+    fileCount.textContent = '—';
+    fileList.innerHTML = '<tr class="empty-row"><td colspan="3">Server not reachable</td></tr>';
+  }
+}
+
+// History table eke "Share" / "Delete" buttons walata click event delegation
+fileList.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-action]');
+  if (!btn) return;
+
+  if (btn.dataset.action === 'delete') {
+    deleteFile(btn.dataset.name);
+  } else if (btn.dataset.action === 'share') {
+    openShareMenu(btn, btn.dataset.url, 'File: ' + btn.dataset.name);
+  }
+});
+
+// Server eka open karapu welawe generate una session code eka page load wenakotama gannawa
+async function loadSessionCode() {
+  try {
+    const res = await fetch(API + '/session-code');
+    const data = await res.json();
+    if (data.success) {
+      lastShareCode = data.code;
+      codeValue.textContent = data.code;
+    }
+  } catch (err) {
+    codeValue.textContent = '----';
+  }
+}
+
+loadSessionCode();
+loadFileList();
+</script>
+
+</body>
+</html>
