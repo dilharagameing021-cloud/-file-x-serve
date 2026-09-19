@@ -134,6 +134,22 @@
   button.send:hover { background: #52c4ba; }
   button.send:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
 
+  .target-code-input {
+    width: 100%;
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    letter-spacing: 0.1em;
+    text-align: center;
+  }
+  .target-code-input:focus { outline: none; border-color: var(--accent); }
+  .target-code-input::placeholder { letter-spacing: normal; color: var(--text-dim); }
+
   .btn-row {
     display: flex;
     gap: 10px;
@@ -409,7 +425,7 @@
 
   <div class="panel">
     <div class="panel-inner code-box show" id="codeBox">
-      <div class="code-label">Session code — share this with the receiving device</div>
+      <div class="code-label">Your code — give this to anyone sending you a file</div>
       <div class="code-value" id="codeValue">----</div>
       <div class="code-actions">
         <button class="mini-btn" id="copyCodeBtn">Copy Code</button>
@@ -435,22 +451,14 @@
         <span class="size" id="chosenSize"></span>
       </div>
 
+      <input type="text" id="targetCodeInput" maxlength="4" inputmode="numeric" placeholder="Send to code (4 digits)" class="target-code-input">
+
       <div class="btn-row">
         <button class="send" id="sendBtn" disabled>Upload File</button>
         <button class="clear-btn" id="clearBtn" disabled>Clear</button>
       </div>
 
       <div id="status"></div>
-    </div>
-  </div>
-
-  <div class="panel">
-    <div class="panel-inner">
-      <div class="receive-row">
-        <input type="text" id="codeInput" maxlength="4" inputmode="numeric" placeholder="Enter 4-digit code">
-        <button class="send secondary" id="receiveBtn">Get File</button>
-      </div>
-      <div id="receiveStatus"></div>
     </div>
   </div>
 
@@ -481,6 +489,7 @@ const fileInput = document.getElementById('fileInput');
 const chosen = document.getElementById('chosen');
 const chosenName = document.getElementById('chosenName');
 const chosenSize = document.getElementById('chosenSize');
+const targetCodeInput = document.getElementById('targetCodeInput');
 const sendBtn = document.getElementById('sendBtn');
 const clearBtn = document.getElementById('clearBtn');
 const status = document.getElementById('status');
@@ -490,12 +499,9 @@ const codeBox = document.getElementById('codeBox');
 const codeValue = document.getElementById('codeValue');
 const copyCodeBtn = document.getElementById('copyCodeBtn');
 const shareCodeBtn = document.getElementById('shareCodeBtn');
-const codeInput = document.getElementById('codeInput');
-const receiveBtn = document.getElementById('receiveBtn');
-const receiveStatus = document.getElementById('receiveStatus');
 
 let selectedFile = null;
-let lastShareCode = null;
+let myCode = null; // mema device ekatama thiyena, wenas nowena code eka
 
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
@@ -512,24 +518,31 @@ function setStatus(kind, html) {
   status.innerHTML = html;
 }
 
+function updateSendButtonState() {
+  const codeValid = /^\d{4}$/.test(targetCodeInput.value.trim());
+  sendBtn.disabled = !(selectedFile && codeValid);
+}
+
 function selectFile(file) {
   selectedFile = file;
   chosenName.textContent = file.name;
   chosenSize.textContent = formatSize(file.size);
   chosen.classList.add('show');
-  sendBtn.disabled = false;
   clearBtn.disabled = false;
   status.classList.remove('show');
+  updateSendButtonState();
 }
 
 function resetSelection() {
   selectedFile = null;
   fileInput.value = '';
   chosen.classList.remove('show');
-  sendBtn.disabled = true;
   clearBtn.disabled = true;
   status.classList.remove('show');
+  updateSendButtonState();
 }
+
+targetCodeInput.addEventListener('input', updateSendButtonState);
 
 clearBtn.addEventListener('click', resetSelection);
 
@@ -556,6 +569,11 @@ dropzone.addEventListener('drop', (e) => {
 
 sendBtn.addEventListener('click', async () => {
   if (!selectedFile) return;
+  const targetCode = targetCodeInput.value.trim();
+  if (!/^\d{4}$/.test(targetCode)) {
+    setStatus('err', '✕ Digits 4ක code එකක් "Send to code" එකට දාන්න.');
+    return;
+  }
 
   sendBtn.disabled = true;
   sendBtn.textContent = 'Uploading…';
@@ -563,47 +581,47 @@ sendBtn.addEventListener('click', async () => {
 
   const formData = new FormData();
   formData.append('file', selectedFile);
+  formData.append('targetCode', targetCode);
 
   try {
     const res = await fetch(API + '/upload', { method: 'POST', body: formData });
     const data = await res.json();
 
     if (data.success) {
-      setStatus('ok', '✓ Uploaded — <a href="' + data.file.downloadUrl + '" target="_blank">' + data.file.savedAs + '</a> (' + formatSize(data.file.size) + ')');
+      setStatus('ok', '✓ Sent to code ' + data.file.targetCode + ' — ' + data.file.originalName + ' (' + formatSize(data.file.size) + ')');
       chosen.classList.remove('show');
       selectedFile = null;
       fileInput.value = '';
       clearBtn.disabled = true;
+      targetCodeInput.value = '';
+      updateSendButtonState();
 
-      lastShareCode = data.file.shareCode;
-      codeValue.textContent = lastShareCode;
-
-      loadFileList();
+      if (targetCode === myCode) loadFileList();
     } else {
       setStatus('err', '✕ ' + (data.message || 'Upload failed'));
     }
   } catch (err) {
-    setStatus('err', '✕ Could not reach the server. Check that it is running on localhost:3000.');
+    setStatus('err', '✕ Could not reach the server.');
   } finally {
-    sendBtn.disabled = false;
     sendBtn.textContent = 'Upload File';
+    updateSendButtonState();
   }
 });
 
 copyCodeBtn.addEventListener('click', async () => {
-  if (!lastShareCode) return;
+  if (!myCode) return;
   try {
-    await navigator.clipboard.writeText(lastShareCode);
+    await navigator.clipboard.writeText(myCode);
     copyCodeBtn.textContent = 'Copied!';
     setTimeout(() => { copyCodeBtn.textContent = 'Copy Code'; }, 1500);
   } catch (e) {
-    prompt('Copy this code:', lastShareCode);
+    prompt('Copy this code:', myCode);
   }
 });
 
 shareCodeBtn.addEventListener('click', (e) => {
-  if (!lastShareCode) return;
-  const message = 'Transfer Console eken file ekak yawanna dala tiyena code eka: ' + lastShareCode;
+  if (!myCode) return;
+  const message = 'FILE-X eken mata file ekak yawanna, mema code eka use karanna: ' + myCode;
   openShareMenu(e.currentTarget, API, message);
 });
 
@@ -651,48 +669,10 @@ function closeShareMenuOnOutsideClick(e) {
   if (menu && !menu.contains(e.target)) closeShareMenu();
 }
 
-function setReceiveStatus(kind, html) {
-  receiveStatus.className = 'show ' + kind;
-  receiveStatus.innerHTML = html;
-}
-
-receiveBtn.addEventListener('click', async () => {
-  const code = codeInput.value.trim();
-  if (!/^\d{4}$/.test(code)) {
-    setReceiveStatus('err', '✕ Digits 4ක code එකක් දාන්න.');
-    return;
-  }
-
-  receiveBtn.disabled = true;
-  setReceiveStatus('pending', 'Checking code…');
-
+async function deleteFile(key) {
+  if (!confirm('Mema file eka delete karannada? Meka undo karanna bahae.')) return;
   try {
-    const res = await fetch(API + '/receive/' + code);
-    const data = await res.json();
-
-    if (data.success) {
-      if (data.files.length === 0) {
-        setReceiveStatus('ok', 'Code eka හරි — නමුත් තව file එකක්වත් upload කරලා නෑ.');
-      } else {
-        const items = data.files.map(f =>
-          '<a href="' + f.downloadUrl + '" target="_blank">' + f.name + '</a> (' + formatSize(f.size) + ')'
-        ).join('<br>');
-        setReceiveStatus('ok', '✓ Code eka හරි — ' + data.count + ' file(s):<br>' + items);
-      }
-    } else {
-      setReceiveStatus('err', '✕ ' + data.message);
-    }
-  } catch (err) {
-    setReceiveStatus('err', '✕ Server එකට reach වෙන්න බැරි වුනා.');
-  } finally {
-    receiveBtn.disabled = false;
-  }
-});
-
-async function deleteFile(name) {
-  if (!confirm('"' + name + '" delete කරන්නද? මේක undo කරන්න බැහැ.')) return;
-  try {
-    const res = await fetch(API + '/delete/' + encodeURIComponent(name), { method: 'DELETE' });
+    const res = await fetch(API + '/delete/' + myCode + '/' + encodeURIComponent(key), { method: 'DELETE' });
     const data = await res.json();
     if (data.success) {
       loadFileList();
@@ -705,14 +685,15 @@ async function deleteFile(name) {
 }
 
 async function loadFileList() {
+  if (!myCode) return;
   try {
-    const res = await fetch(API + '/files');
+    const res = await fetch(API + '/inbox/' + myCode);
     const data = await res.json();
 
     fileCount.textContent = data.count + (data.count === 1 ? ' file' : ' files');
 
     if (!data.files || data.files.length === 0) {
-      fileList.innerHTML = '<tr class="empty-row"><td colspan="3">No files uploaded yet</td></tr>';
+      fileList.innerHTML = '<tr class="empty-row"><td colspan="3">No files received yet</td></tr>';
       return;
     }
 
@@ -723,7 +704,7 @@ async function loadFileList() {
         '<td class="action">' +
           '<button class="icon-btn" data-action="share" data-url="' + f.downloadUrl + '" data-name="' + f.name.replace(/"/g, '&quot;') + '">Share</button>' +
           '<a href="' + f.downloadUrl + '" target="_blank">Download</a>' +
-          '<button class="icon-btn danger" data-action="delete" data-name="' + f.name.replace(/"/g, '&quot;') + '">Delete</button>' +
+          '<button class="icon-btn danger" data-action="delete" data-key="' + f.key.replace(/"/g, '&quot;') + '">Delete</button>' +
         '</td>' +
       '</tr>'
     ).join('');
@@ -739,28 +720,47 @@ fileList.addEventListener('click', (e) => {
   if (!btn) return;
 
   if (btn.dataset.action === 'delete') {
-    deleteFile(btn.dataset.name);
+    deleteFile(btn.dataset.key);
   } else if (btn.dataset.action === 'share') {
     openShareMenu(btn, btn.dataset.url, 'File: ' + btn.dataset.name);
   }
 });
 
-// Server eka open karapu welawe generate una session code eka page load wenakotama gannawa
-async function loadSessionCode() {
+// Mema device ekatama thiyena code eka hoyaganna - localStorage eke
+// kalin save karapu ekak thiyenawada balala, ehema nathnam aluth ekak illanawa.
+async function initMyCode() {
+  const savedCode = localStorage.getItem('fileXCode');
+
+  if (savedCode) {
+    try {
+      const checkRes = await fetch(API + '/check-code/' + savedCode);
+      const checkData = await checkRes.json();
+      if (checkData.success && checkData.exists) {
+        myCode = savedCode;
+        codeValue.textContent = myCode;
+        loadFileList();
+        return;
+      }
+    } catch (err) {
+      // server eka reach wenne naha nam pahalata yai, aluth code ekak illanawa
+    }
+  }
+
   try {
-    const res = await fetch(API + '/session-code');
+    const res = await fetch(API + '/register', { method: 'POST' });
     const data = await res.json();
     if (data.success) {
-      lastShareCode = data.code;
-      codeValue.textContent = data.code;
+      myCode = data.code;
+      localStorage.setItem('fileXCode', myCode);
+      codeValue.textContent = myCode;
+      loadFileList();
     }
   } catch (err) {
     codeValue.textContent = '----';
   }
 }
 
-loadSessionCode();
-loadFileList();
+initMyCode();
 </script>
 
 </body>
