@@ -761,6 +761,12 @@ async function initMyCode() {
 }
 
 initMyCode();
+
+// Wenath kenek file ekak yawuwoth, page eka refresh nokarama penena widihata
+// tatpara 5 kata parak automatic widihata inbox eka check karanawa.
+setInterval(() => {
+  if (myCode) loadFileList();
+}, 5000);
 </script>
 
 </body>
