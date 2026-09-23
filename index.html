@@ -703,17 +703,20 @@ async function loadFileList() {
       return;
     }
 
-    fileList.innerHTML = data.files.map(f =>
-      '<tr>' +
-        '<td><div class="file-name">' + fileIconSvg() + '<span>' + f.name + '</span></div></td>' +
-        '<td class="size">' + formatSize(f.size) + '</td>' +
-        '<td class="action">' +
-          '<button class="icon-btn" data-action="share" data-url="' + f.downloadUrl + '" data-name="' + f.name.replace(/"/g, '&quot;') + '">Share</button>' +
-          '<a href="' + f.downloadUrl + '" target="_blank">Download</a>' +
-          '<button class="icon-btn danger" data-action="delete" data-key="' + f.key.replace(/"/g, '&quot;') + '">Delete</button>' +
-        '</td>' +
-      '</tr>'
-    ).join('');
+    fileList.innerHTML = data.files.map(f => {
+      const fullUrl = API + f.downloadUrl; // relative path eka + domain eka = real, share karanna puluwan URL ekak
+      return (
+        '<tr>' +
+          '<td><div class="file-name">' + fileIconSvg() + '<span>' + f.name + '</span></div></td>' +
+          '<td class="size">' + formatSize(f.size) + '</td>' +
+          '<td class="action">' +
+            '<button class="icon-btn" data-action="share" data-url="' + fullUrl + '" data-name="' + f.name.replace(/"/g, '&quot;') + '">Share</button>' +
+            '<a href="' + fullUrl + '" target="_blank">Download</a>' +
+            '<button class="icon-btn danger" data-action="delete" data-key="' + f.key.replace(/"/g, '&quot;') + '">Delete</button>' +
+          '</td>' +
+        '</tr>'
+      );
+    }).join('');
   } catch (err) {
     fileCount.textContent = '—';
     fileList.innerHTML = '<tr class="empty-row"><td colspan="3">Server not reachable</td></tr>';
