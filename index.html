@@ -658,7 +658,16 @@ function openShareMenu(anchorEl, url, text) {
 
   const rect = anchorEl.getBoundingClientRect();
   const menuWidth = menu.offsetWidth;
-  menu.style.top = (rect.bottom + 6) + 'px';
+  const menuHeight = menu.offsetHeight;
+
+  // Pahala space nathi welawe, button eke udinma menu eka open karanawa
+  const spaceBelow = window.innerHeight - rect.bottom;
+  if (spaceBelow < menuHeight + 12) {
+    menu.style.top = (rect.top - menuHeight - 6) + 'px';
+  } else {
+    menu.style.top = (rect.bottom + 6) + 'px';
+  }
+
   menu.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8)) + 'px';
 
   setTimeout(() => document.addEventListener('click', closeShareMenuOnOutsideClick), 0);
