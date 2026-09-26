@@ -22,6 +22,38 @@
 
   * { box-sizing: border-box; }
 
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(0.92) translateY(-4px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  @keyframes glowPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(63,182,172,0.0); }
+    50% { box-shadow: 0 0 0 6px rgba(63,182,172,0.06); }
+  }
+  @keyframes drift {
+    0%   { transform: translate(0, 0) scale(1); }
+    50%  { transform: translate(-3%, 2%) scale(1.08); }
+    100% { transform: translate(0, 0) scale(1); }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  @keyframes codeDigitIn {
+    from { opacity: 0; transform: translateY(6px) scale(0.85); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  }
+
   body {
     margin: 0;
     min-height: 100vh;
@@ -31,11 +63,27 @@
     display: flex;
     justify-content: center;
     padding: 48px 20px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: -10%;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 20% 25%, rgba(63,182,172,0.10), transparent 40%),
+      radial-gradient(circle at 82% 70%, rgba(63,182,172,0.06), transparent 45%);
+    animation: drift 16s ease-in-out infinite;
   }
 
   .console {
     width: 100%;
     max-width: 640px;
+    position: relative;
+    z-index: 1;
   }
 
   .console-header {
@@ -52,6 +100,7 @@
     letter-spacing: 0.06em;
     color: var(--accent);
     text-align: center;
+    animation: fadeInUp 0.5s ease both;
   }
 
   .panel {
@@ -59,7 +108,13 @@
     border: 1px solid var(--border);
     border-radius: 10px;
     overflow: hidden;
+    animation: fadeInUp 0.5s ease both;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
   }
+  .console > .panel:nth-of-type(1) { animation-delay: 0.06s; }
+  .console > .panel:nth-of-type(2) { animation-delay: 0.14s; }
+  .console > .panel:nth-of-type(3) { animation-delay: 0.22s; }
+  .panel:hover { border-color: rgba(63,182,172,0.35); }
 
   .panel + .panel { margin-top: 16px; }
 
@@ -71,20 +126,24 @@
     padding: 32px 20px;
     text-align: center;
     cursor: pointer;
-    transition: border-color 0.15s ease, background 0.15s ease;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
   }
   #dropzone.drag {
     border-color: var(--accent);
     background: rgba(63,182,172,0.06);
+    transform: scale(1.015);
   }
-  #dropzone:hover { border-color: var(--accent-dim); }
+  #dropzone:hover { border-color: var(--accent-dim); transform: translateY(-2px); }
 
   #dropzone svg {
     width: 28px;
     height: 28px;
     margin-bottom: 12px;
     stroke: var(--text-dim);
+    transition: stroke 0.2s ease, transform 0.2s ease;
   }
+  #dropzone:hover svg { stroke: var(--accent); transform: translateY(-2px); }
+  #dropzone.drag svg { stroke: var(--accent); animation: fadeInUp 0.5s ease infinite alternate; }
 
   #dropzone .dz-main {
     font-size: 14px;
@@ -114,7 +173,7 @@
     gap: 10px;
     font-family: 'JetBrains Mono', monospace;
   }
-  .chosen.show { display: flex; }
+  .chosen.show { display: flex; animation: popIn 0.25s ease both; }
   .chosen .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .chosen .size { color: var(--text-dim); flex-shrink: 0; }
 
@@ -129,10 +188,23 @@
     font-size: 13.5px;
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.15s ease;
+    transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
   }
-  button.send:hover { background: #52c4ba; }
+  button.send:hover:not(:disabled) { background: #52c4ba; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(63,182,172,0.25); }
+  button.send:active:not(:disabled) { transform: translateY(0) scale(0.98); box-shadow: none; }
   button.send:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
+
+  .btn-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(8,32,29,0.35);
+    border-top-color: #08201D;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: -2px;
+    margin-right: 2px;
+  }
 
   .target-code-input {
     width: 100%;
@@ -146,8 +218,9 @@
     font-size: 15px;
     letter-spacing: 0.1em;
     text-align: center;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
   }
-  .target-code-input:focus { outline: none; border-color: var(--accent); }
+  .target-code-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(63,182,172,0.14); }
   .target-code-input::placeholder { letter-spacing: normal; color: var(--text-dim); }
 
   .btn-row {
@@ -166,9 +239,10 @@
     font-size: 13.5px;
     font-weight: 600;
     cursor: pointer;
-    transition: border-color 0.15s ease, color 0.15s ease;
+    transition: border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
   }
-  .clear-btn:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
+  .clear-btn:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); transform: translateY(-1px); }
+  .clear-btn:active:not(:disabled) { transform: translateY(0) scale(0.97); }
   .clear-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
   #status {
@@ -181,7 +255,7 @@
     word-break: break-word;
     font-family: 'JetBrains Mono', monospace;
   }
-  #status.show { display: block; }
+  #status.show { display: block; animation: fadeInUp 0.3s ease both; }
   #status.ok { background: rgba(63,182,172,0.1); color: var(--accent); border: 1px solid rgba(63,182,172,0.3); }
   #status.err { background: rgba(217,107,93,0.1); color: var(--danger); border: 1px solid rgba(217,107,93,0.3); }
   #status.pending { background: var(--panel-alt); color: var(--text-dim); border: 1px solid var(--border); }
@@ -230,6 +304,7 @@
     vertical-align: middle;
   }
   tbody tr:last-child td { border-bottom: none; }
+  tbody tr { animation: fadeInUp 0.35s ease both; transition: background 0.2s ease; }
   tbody tr:hover { background: var(--panel-alt); }
 
   .file-name {
@@ -281,6 +356,7 @@
     border: 1px solid var(--accent-dim);
     border-radius: 8px;
     text-align: center;
+    animation: glowPulse 3.5s ease-in-out infinite;
   }
   .code-box.show { display: block; }
   .code-box .code-label {
@@ -295,6 +371,10 @@
     letter-spacing: 0.15em;
     color: var(--accent);
     margin-bottom: 12px;
+  }
+  .code-box .code-value span {
+    display: inline-block;
+    animation: codeDigitIn 0.4s ease both;
   }
   .code-actions {
     display: flex;
@@ -314,6 +394,12 @@
     transition: border-color 0.15s ease, background 0.15s ease;
   }
   .mini-btn:hover { border-color: var(--accent); background: rgba(63,182,172,0.08); }
+  .mini-btn.copied {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #08201D;
+    animation: popIn 0.3s ease;
+  }
 
   /* Receive panel */
   .receive-row {
@@ -385,6 +471,7 @@
     flex-direction: column;
     min-width: 170px;
     box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+    animation: popIn 0.18s ease both;
   }
   .share-menu a {
     display: flex;
@@ -396,8 +483,9 @@
     text-decoration: none;
     font-size: 13px;
     font-family: 'Inter', sans-serif;
+    transition: background 0.15s ease, transform 0.15s ease;
   }
-  .share-menu a:hover { background: var(--panel); }
+  .share-menu a:hover { background: var(--panel); transform: translateX(2px); }
   .share-icon {
     width: 20px;
     height: 20px;
@@ -582,7 +670,7 @@ sendBtn.addEventListener('click', async () => {
   }
 
   sendBtn.disabled = true;
-  sendBtn.textContent = 'Uploading…';
+  sendBtn.innerHTML = '<span class="btn-spinner"></span> Uploading…';
   setStatus('pending', 'Transferring file…');
 
   const formData = new FormData();
@@ -619,7 +707,11 @@ copyCodeBtn.addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText(myCode);
     copyCodeBtn.textContent = 'Copied!';
-    setTimeout(() => { copyCodeBtn.textContent = 'Copy Code'; }, 1500);
+    copyCodeBtn.classList.add('copied');
+    setTimeout(() => {
+      copyCodeBtn.textContent = 'Copy Code';
+      copyCodeBtn.classList.remove('copied');
+    }, 1500);
   } catch (e) {
     prompt('Copy this code:', myCode);
   }
@@ -712,10 +804,10 @@ async function loadFileList() {
       return;
     }
 
-    fileList.innerHTML = data.files.map(f => {
+    fileList.innerHTML = data.files.map((f, i) => {
       const fullUrl = API + f.downloadUrl; // relative path eka + domain eka = real, share karanna puluwan URL ekak
       return (
-        '<tr>' +
+        '<tr style="animation-delay:' + Math.min(i * 0.05, 0.4) + 's">' +
           '<td><div class="file-name">' + fileIconSvg() + '<span>' + f.name + '</span></div></td>' +
           '<td class="size">' + formatSize(f.size) + '</td>' +
           '<td class="action">' +
@@ -744,6 +836,13 @@ fileList.addEventListener('click', (e) => {
   }
 });
 
+// Code eke digit ekak ekak stagger ekak widihata animate karala pennanawa
+function renderCode(code) {
+  codeValue.innerHTML = code.split('').map((ch, i) =>
+    '<span style="animation-delay:' + (i * 0.06) + 's">' + ch + '</span>'
+  ).join('');
+}
+
 // Mema device ekatama thiyena code eka hoyaganna - localStorage eke
 // kalin save karapu ekak thiyenawada balala, ehema nathnam aluth ekak illanawa.
 async function initMyCode() {
@@ -755,7 +854,7 @@ async function initMyCode() {
       const checkData = await checkRes.json();
       if (checkData.success && checkData.exists) {
         myCode = savedCode;
-        codeValue.textContent = myCode;
+        renderCode(myCode);
         loadFileList();
         return;
       }
@@ -770,7 +869,7 @@ async function initMyCode() {
     if (data.success) {
       myCode = data.code;
       localStorage.setItem('fileXCode', myCode);
-      codeValue.textContent = myCode;
+      renderCode(myCode);
       loadFileList();
     }
   } catch (err) {
